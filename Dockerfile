@@ -1,7 +1,4 @@
-FROM node:18-alpine AS base
-
-# Instalează OpenSSL și compatibilități încă din etapa inițială
-RUN apk add --no-cache libc6-compat openssl1.1-compat || apk add --no-cache openssl
+FROM node:18-bullseye AS base
 
 FROM base AS deps
 WORKDIR /app
@@ -13,7 +10,6 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
 RUN npx prisma generate
 RUN npm run build
 
@@ -38,4 +34,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"] # sau ["npm", "start"] dacă ai next start în scripts
+CMD ["node", "server.js"]
