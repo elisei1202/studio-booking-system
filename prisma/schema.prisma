@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum ReservationType {
+  DAY_SLOT
+  NIGHT
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentMethod {
+  STRIPE
+  USDT
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(USER)
+  isBlocked     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions UserSubscription[]
+  reservations  Reservation[]
+  payments      Payment[]
+
+  @@index([email])
+}
+
+model SubscriptionPlan {
+  id                  String  @id @default(cuid())
+  name                String  @unique
+  priceLei            Int
+  creditUnits         Int
+  weekendLimit        Int?
+  canBookNight        Boolean @default(false)
+  advanceBookingDays  Int     @default(7)
+  description         String?
+
+  userSubscriptions UserSubscription[]
+  payments          Payment[]
+
+  @@index([name])
+}
+
+model UserSubscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  planId               String
+  startDate            DateTime
+  endDate              DateTime
+  remainingCreditUnits Int
+  status               SubscriptionStatus @default(PENDING)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan         SubscriptionPlan  @relation(fields: [planId], references: [id])
+  reservations Reservation[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([endDate])
+}
+
+model Reservation {
+  id               String            @id @default(cuid())
+  userId           String
+  subscriptionId   String
+  date             DateTime
+  slotId           Int?
+  type             ReservationType
+  costCreditUnits  Int
+  status           ReservationStatus @default(CONFIRMED)
+  penaltyUnits     Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription UserSubscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([userId])
+  @@index([date])
+  @@index([status])
+}
+
+model Payment {
+  id                 String        @id @default(cuid())
+  userId             String
+  subscriptionPlanId String
+  method             PaymentMethod
+  providerPaymentId  String?
+  amount             Int
+  currency           String        @default("RON")
+  status             PaymentStatus @default(PENDING)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([providerPaymentId])
+}
